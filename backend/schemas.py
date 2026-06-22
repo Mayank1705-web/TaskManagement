@@ -31,7 +31,7 @@ class Token(BaseModel):
     token_type: str = "bearer"
     user: UserOut
 
-# ---------- Project ----------
+# Project
 class ProjectCreate(BaseModel):
     name: str
     description: str = ""
@@ -47,7 +47,7 @@ class ProjectOut(BaseModel):
         from_attributes = True
 
 
-# ---------- Sprint ----------
+# Sprint
 class SprintCreate(BaseModel):
     name: str
     project_id: int
@@ -66,7 +66,7 @@ class SprintOut(BaseModel):
         from_attributes = True
 
 
-# ---------- Task ----------
+# Task
 class TaskCreate(BaseModel):
     title: str
     description: str = ""
@@ -114,3 +114,27 @@ class TaskOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+# ML
+class EstimateRequest(BaseModel):
+    type: str
+    priority: str
+    assignee_id: Optional[int] = None
+    title: str = ""
+
+
+class EstimateResponse(BaseModel):
+    predicted_hours: float
+    confidence_note: str
+
+
+class RiskTaskOut(BaseModel):
+    id: int
+    title: str
+    status: str
+    priority: str
+    type: str
+    assignee_name: Optional[str]
+    due_date: Optional[datetime]
+    risk_score: float
+    risk_label: str

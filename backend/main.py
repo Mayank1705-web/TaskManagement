@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from database import engine
 import models
-from routers import auth, projects, tasks, analytics
+from routers import auth, projects, tasks, analytics, ml
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -24,6 +24,7 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(analytics.router)
+app.include_router(ml.router)
 
 
 @app.get("/api/health")
