@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow — Board</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container-fluid py-3 px-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0" id="projectName">Loading…</h4>
+      <div class="small text-muted" id="projectDesc"></div>
+    </div>
+    <button class="btn btn-tf-primary" id="newTaskBtn">+ New Task</button>
+  </div>
+
+  <div class="tf-board" id="board">
+    <div class="tf-column" data-status="todo">
+      <div class="tf-column-title">To Do</div>
+      <div class="tf-column-body" id="col-todo"></div>
+    </div>
+    <div class="tf-column" data-status="in_progress">
+      <div class="tf-column-title">In Progress</div>
+      <div class="tf-column-body" id="col-in_progress"></div>
+    </div>
+    <div class="tf-column" data-status="done">
+      <div class="tf-column-title">Done</div>
+      <div class="tf-column-body" id="col-done"></div>
+    </div>
+    <div class="tf-column" data-status="blocked">
+      <div class="tf-column-title">Blocked</div>
+      <div class="tf-column-body" id="col-blocked"></div>
+    </div>
+  </div>
+</div>
+
+<!-- New Task Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">New Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="taskFormAlert" class="alert alert-danger d-none small"></div>
+        <form id="taskForm">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Title</label>
+            <input type="text" class="form-control" id="taskTitle" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Description</label>
+            <textarea class="form-control" id="taskDescription" rows="2"></textarea>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label small fw-semibold">Type</label>
+              <select class="form-control" id="taskType">
+                <option value="frontend">Frontend</option>
+                <option value="backend">Backend</option>
+                <option value="database">Database</option>
+                <option value="devops">DevOps</option>
+                <option value="design">Design</option>
+                <option value="testing">Testing</option>
+              </select>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label small fw-semibold">Priority</label>
+              <select class="form-control" id="taskPriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label small fw-semibold">Assignee</label>
+              <select class="form-control" id="taskAssignee"></select>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label small fw-semibold">Estimate (hrs)</label>
+              <input type="number" class="form-control" id="taskEstimate" value="2" min="0.5" step="0.5">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Due date</label>
+            <input type="date" class="form-control" id="taskDueDate">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-tf-primary" id="saveTaskBtn">Create Task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+  Api.requireAuth();
+  renderNavbar("dashboard");
+
+  let currentProject = null;
+  let allTasks = [];
+  let allUsers = [];
+
+  async function init() {
+    const projects = await Api.listProjects();
+    if (!projects.length) {
+      document.getElementById("projectName").textContent = "No projects yet";
+      return;
+    }
+    currentProject = projects[0]; // demo: single-project view
+    document.getElementById("projectName").textContent = currentProject.name;
+    document.getElementById("projectDesc").textContent = currentProject.description;
+
+    allUsers = await Api.listUsers();
+    const assigneeSelect = document.getElementById("taskAssignee");
+    assigneeSelect.innerHTML = allUsers.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join("");
+
+    await loadTasks();
+  }
+
+  async function loadTasks() {
+    allTasks = await Api.listTasks({ project_id: currentProject.id });
+    renderBoard();
+  }
+
+  function renderBoard() {
+    const statuses = ["todo", "in_progress", "done", "blocked"];
+    statuses.forEach(status => {
+      const col = document.getElementById(`col-${status}`);
+      const tasksHere = allTasks.filter(t => t.status === status);
+      col.innerHTML = tasksHere.map(taskCardHtml).join("") || `<div class="text-muted small p-2">No tasks</div>`;
+    });
+
+    // Drag-and-drop wiring
+    document.querySelectorAll(".tf-card").forEach(card => {
+      card.addEventListener("dragstart", () => card.classList.add("dragging"));
+      card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    });
+    document.querySelectorAll(".tf-column-body").forEach(col => {
+      col.addEventListener("dragover", (e) => e.preventDefault());
+      col.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        const dragging = document.querySelector(".dragging");
+        if (!dragging) return;
+        const taskId = parseInt(dragging.dataset.taskId);
+        const newStatus = col.closest(".tf-column").dataset.status;
+        await Api.updateTask(taskId, { status: newStatus });
+        await loadTasks();
+      });
+    });
+  }
+
+  function taskCardHtml(t) {
+    const assignee = allUsers.find(u => u.id === t.assignee_id);
+    return `
+      <div class="tf-card" draggable="true" data-task-id="${t.id}">
+        <div class="tf-card-title">${escapeHtml(t.title)}</div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="tf-badge tf-badge-${t.priority}">${t.priority}</span>
+          <span class="small text-muted">${escapeHtml(t.type)}</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center small text-muted">
+          <span>${assignee ? escapeHtml(assignee.name) : "Unassigned"}</span>
+          <span>${t.due_date ? timeAgo(t.due_date) : ""}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById("newTaskBtn").addEventListener("click", () => {
+    document.getElementById("taskForm").reset();
+    document.getElementById("taskFormAlert").classList.add("d-none");
+    new bootstrap.Modal(document.getElementById("taskModal")).show();
+  });
+
+  document.getElementById("saveTaskBtn").addEventListener("click", async () => {
+    const alertBox = document.getElementById("taskFormAlert");
+    alertBox.classList.add("d-none");
+    const title = document.getElementById("taskTitle").value.trim();
+    if (!title) {
+      alertBox.textContent = "Title is required.";
+      alertBox.classList.remove("d-none");
+      return;
+    }
+    try {
+      await Api.createTask({
+        title,
+        description: document.getElementById("taskDescription").value,
+        type: document.getElementById("taskType").value,
+        priority: document.getElementById("taskPriority").value,
+        assignee_id: parseInt(document.getElementById("taskAssignee").value) || null,
+        estimate_hours: parseFloat(document.getElementById("taskEstimate").value) || 2,
+        due_date: document.getElementById("taskDueDate").value || null,
+        project_id: currentProject.id,
+        status: "todo",
+      });
+      bootstrap.Modal.getInstance(document.getElementById("taskModal")).hide();
+      await loadTasks();
+    } catch (err) {
+      alertBox.textContent = err.message;
+      alertBox.classList.remove("d-none");
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

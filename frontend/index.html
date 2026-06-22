@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow — Sign in</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="tf-auth-wrap">
+  <div class="tf-auth-card">
+    <div class="logo"><span style="color:var(--tf-indigo)">●</span> TaskFlow</div>
+    <div class="sub">Task management with built-in analytics & ML.</div>
+
+    <ul class="nav nav-pills mb-4" id="authTabs">
+      <li class="nav-item flex-fill">
+        <button class="nav-link active w-100" data-tab="login" type="button">Sign in</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" data-tab="register" type="button">Create account</button>
+      </li>
+    </ul>
+
+    <div id="alertBox" class="alert alert-danger d-none small" role="alert"></div>
+
+    <!-- LOGIN -->
+    <form id="loginForm">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Email</label>
+        <input type="email" class="form-control" id="loginEmail" required value="demo@taskflow.dev">
+      </div>
+      <div class="mb-4">
+        <label class="form-label small fw-semibold">Password</label>
+        <input type="password" class="form-control" id="loginPassword" required value="demo1234">
+      </div>
+      <button type="submit" class="btn btn-tf-primary w-100">Sign in</button>
+      <div class="text-center mt-3 small text-muted">Demo login is pre-filled — just click Sign in.</div>
+    </form>
+
+    <!-- REGISTER -->
+    <form id="registerForm" class="d-none">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Name</label>
+        <input type="text" class="form-control" id="regName" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Email</label>
+        <input type="email" class="form-control" id="regEmail" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Password</label>
+        <input type="password" class="form-control" id="regPassword" required minlength="6">
+      </div>
+      <div class="mb-4">
+        <label class="form-label small fw-semibold">Primary stack</label>
+        <select class="form-control" id="regStack">
+          <option value="fullstack">Full-stack</option>
+          <option value="frontend">Frontend</option>
+          <option value="backend">Backend</option>
+          <option value="devops">DevOps</option>
+          <option value="design">Design</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-tf-primary w-100">Create account</button>
+    </form>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  // Redirect if already logged in
+  if (Api.token()) window.location.href = "dashboard.html";
+
+  document.querySelectorAll("#authTabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#authTabs button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.dataset.tab;
+      document.getElementById("loginForm").classList.toggle("d-none", tab !== "login");
+      document.getElementById("registerForm").classList.toggle("d-none", tab !== "register");
+      hideAlert();
+    });
+  });
+
+  function showAlert(msg) {
+    const box = document.getElementById("alertBox");
+    box.textContent = msg;
+    box.classList.remove("d-none");
+  }
+  function hideAlert() {
+    document.getElementById("alertBox").classList.add("d-none");
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hideAlert();
+    try {
+      const data = await Api.login(
+        document.getElementById("loginEmail").value,
+        document.getElementById("loginPassword").value
+      );
+      Api.setToken(data.access_token);
+      Api.setUser(data.user);
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      showAlert(err.message);
+    }
+  });
+
+  document.getElementById("registerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hideAlert();
+    try {
+      const data = await Api.register(
+        document.getElementById("regName").value,
+        document.getElementById("regEmail").value,
+        document.getElementById("regPassword").value,
+        document.getElementById("regStack").value
+      );
+      Api.setToken(data.access_token);
+      Api.setUser(data.user);
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      showAlert(err.message);
+    }
+  });
+</script>
+</body>
+</html>

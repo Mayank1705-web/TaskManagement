@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow — Analytics</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container py-4">
+  <h4 class="mb-4">Analytics</h4>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="tf-chart-card">
+        <h6>Sprint Burndown</h6>
+        <select class="form-control form-control-sm mb-3" id="sprintSelect"></select>
+        <div id="burndownChart"><div class="text-muted small">Select a sprint.</div></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="tf-chart-card">
+        <h6>Velocity by Sprint</h6>
+        <div id="velocityChart"><div class="text-muted small">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="tf-chart-card">
+        <h6>Workload by Assignee</h6>
+        <div id="workloadChart"><div class="text-muted small">Loading…</div></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="tf-chart-card">
+        <h6>Priority Distribution</h6>
+        <div id="priorityChart"><div class="text-muted small">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+  Api.requireAuth();
+  renderNavbar("analytics");
+
+  let currentProject = null;
+
+  async function init() {
+    const projects = await Api.listProjects();
+    if (!projects.length) return;
+    currentProject = projects[0];
+
+    const sprints = await Api.listSprints(currentProject.id);
+    const sprintSelect = document.getElementById("sprintSelect");
+    sprintSelect.innerHTML = sprints.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    sprintSelect.addEventListener("change", () => loadBurndown(sprintSelect.value));
+    if (sprints.length) loadBurndown(sprints[sprints.length - 1].id); // default to most recent
+
+    loadVelocity();
+    loadWorkload();
+    loadPriority();
+  }
+
+  async function loadBurndown(sprintId) {
+    const box = document.getElementById("burndownChart");
+    try {
+      const data = await Api.burndown(sprintId);
+      box.innerHTML = `
+        <img src="${chartUrl(data.chart_url)}" alt="Burndown chart">
+        <div class="small text-muted mt-2">${data.done_tasks}/${data.total_tasks} tasks done · ${data.remaining_hours}h remaining</div>
+      `;
+    } catch (err) {
+      box.innerHTML = `<div class="text-muted small">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function loadVelocity() {
+    const box = document.getElementById("velocityChart");
+    try {
+      const data = await Api.velocity(currentProject.id);
+      box.innerHTML = `
+        <img src="${chartUrl(data.chart_url)}" alt="Velocity chart">
+        <div class="small text-muted mt-2">Avg velocity: ${data.avg_velocity_hours}h/sprint</div>
+      `;
+    } catch (err) {
+      box.innerHTML = `<div class="text-muted small">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function loadWorkload() {
+    const box = document.getElementById("workloadChart");
+    try {
+      const data = await Api.workload(currentProject.id);
+      box.innerHTML = `
+        <img src="${chartUrl(data.chart_url)}" alt="Workload heatmap">
+        <div class="small text-muted mt-2">Most loaded: ${escapeHtml(data.most_loaded_assignee || "—")}</div>
+      `;
+    } catch (err) {
+      box.innerHTML = `<div class="text-muted small">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function loadPriority() {
+    const box = document.getElementById("priorityChart");
+    try {
+      const data = await Api.priorityDistribution(currentProject.id);
+      box.innerHTML = `<img src="${chartUrl(data.chart_url)}" alt="Priority distribution chart">`;
+    } catch (err) {
+      box.innerHTML = `<div class="text-muted small">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

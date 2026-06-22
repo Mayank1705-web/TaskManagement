@@ -1,0 +1,149 @@
+:root {
+  --tf-indigo: #6366f1;
+  --tf-indigo-dark: #4f46e5;
+  --tf-slate-50: #f8fafc;
+  --tf-slate-100: #f1f5f9;
+  --tf-slate-200: #e2e8f0;
+  --tf-slate-600: #475569;
+  --tf-slate-900: #0f172a;
+}
+
+body {
+  background: var(--tf-slate-50);
+  color: var(--tf-slate-900);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/*  Auth page  */
+.tf-auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.tf-auth-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+}
+.tf-auth-card .logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.tf-auth-card .sub {
+  color: var(--tf-slate-600);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.btn-tf-primary {
+  background: var(--tf-indigo);
+  border: none;
+  color: white;
+  font-weight: 600;
+}
+.btn-tf-primary:hover {
+  background: var(--tf-indigo-dark);
+  color: white;
+}
+
+/*  Navbar  */
+.tf-navbar {
+  background: white;
+  border-bottom: 1px solid var(--tf-slate-200);
+  padding: 0.75rem 1.5rem;
+}
+.tf-navbar .navbar-brand {
+  font-weight: 700;
+  color: var(--tf-slate-900);
+}
+.tf-navbar .nav-link {
+  color: var(--tf-slate-600);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+.tf-navbar .nav-link.active {
+  color: var(--tf-indigo);
+  font-weight: 700;
+}
+
+/*  Kanban board  */
+.tf-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  padding: 1.5rem;
+}
+.tf-column {
+  background: var(--tf-slate-100);
+  border-radius: 12px;
+  padding: 0.75rem;
+  min-height: 200px;
+}
+.tf-column-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tf-slate-600);
+  margin-bottom: 0.75rem;
+  padding: 0 0.25rem;
+}
+.tf-card {
+  background: white;
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-bottom: 0.6rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  cursor: grab;
+}
+.tf-card.dragging {
+  opacity: 0.4;
+}
+.tf-card-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+.tf-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.tf-badge-low { background: #e0f2fe; color: #0369a1; }
+.tf-badge-medium { background: #fef3c7; color: #92400e; }
+.tf-badge-high { background: #fed7aa; color: #9a3412; }
+.tf-badge-urgent { background: #fee2e2; color: #b91c1c; }
+
+/*  Charts/cards  */
+.tf-chart-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  margin-bottom: 1.5rem;
+}
+.tf-chart-card img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.tf-stat {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--tf-slate-900);
+}
+.tf-stat-label {
+  font-size: 0.8rem;
+  color: var(--tf-slate-600);
+}
+
+/*  Risk badges  */
+.tf-risk-high { background: #fee2e2; color: #b91c1c; }
+.tf-risk-medium { background: #fef3c7; color: #92400e; }
+.tf-risk-low { background: #dcfce7; color: #166534; }

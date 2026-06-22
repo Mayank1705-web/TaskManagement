@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow — Tasktopus</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+  <style>
+    .tt-wrap { max-width: 760px; margin: 0 auto; }
+    .tt-thread { height: 60vh; overflow-y: auto; padding: 1rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(15,23,42,0.06); }
+    .tt-msg { margin-bottom: 1rem; max-width: 80%; }
+    .tt-msg.user { margin-left: auto; text-align: right; }
+    .tt-bubble { display: inline-block; padding: 0.6rem 1rem; border-radius: 14px; font-size: 0.9rem; }
+    .tt-msg.user .tt-bubble { background: var(--tf-indigo); color: white; }
+    .tt-msg.assistant .tt-bubble { background: var(--tf-slate-100); color: var(--tf-slate-900); }
+    .tt-plan-card { background: white; border: 1px solid var(--tf-slate-200); border-radius: 12px; padding: 1rem; margin-top: 0.5rem; }
+    .tt-plan-task { border-left: 3px solid var(--tf-indigo); padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: var(--tf-slate-50); border-radius: 0 8px 8px 0; }
+  </style>
+</head>
+<body>
+
+<div class="tt-wrap py-4">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <span style="font-size:1.6rem">🐙</span>
+    <div>
+      <div class="fw-bold">Tasktopus</div>
+      <div class="small text-muted">Tell me what you're trying to get done.</div>
+    </div>
+  </div>
+
+  <div class="tt-thread" id="thread"></div>
+
+  <form id="chatForm" class="d-flex gap-2 mt-3">
+    <input type="text" class="form-control" id="chatInput" placeholder="e.g. We need to launch a referral program by next sprint" autocomplete="off" required>
+    <button class="btn btn-tf-primary" type="submit" id="sendBtn">Send</button>
+  </form>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+  Api.requireAuth();
+  renderNavbar("tasktopus");
+
+  let currentProject = null;
+  let history = []; // [{role, content}]
+
+  async function init() {
+    const projects = await Api.listProjects();
+    if (!projects.length) {
+      addSystemNotice("No project found — create one first.");
+      return;
+    }
+    currentProject = projects[0];
+    addAssistantBubble("Hey! I'm Tasktopus. Tell me what you're trying to get done, and I'll help break it down — for you alone, or for the team, whichever fits.");
+  }
+
+  function scrollToBottom() {
+    const thread = document.getElementById("thread");
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function addUserBubble(text) {
+    const thread = document.getElementById("thread");
+    thread.insertAdjacentHTML("beforeend", `
+      <div class="tt-msg user"><div class="tt-bubble">${escapeHtml(text)}</div></div>
+    `);
+    scrollToBottom();
+  }
+
+  function addAssistantBubble(text) {
+    const thread = document.getElementById("thread");
+    thread.insertAdjacentHTML("beforeend", `
+      <div class="tt-msg assistant"><div class="tt-bubble">${escapeHtml(text)}</div></div>
+    `);
+    scrollToBottom();
+  }
+
+  function addSystemNotice(text) {
+    const thread = document.getElementById("thread");
+    thread.insertAdjacentHTML("beforeend", `<div class="text-muted small text-center my-2">${escapeHtml(text)}</div>`);
+    scrollToBottom();
+  }
+
+  function addPlanCard(plan) {
+    const thread = document.getElementById("thread");
+    const planId = "plan-" + Date.now();
+    const tasksHtml = plan.tasks.map(t => `
+      <div class="tt-plan-task">
+        <div class="d-flex justify-content-between">
+          <span class="fw-semibold small">${escapeHtml(t.title)}</span>
+          <span class="tf-badge tf-badge-${t.priority}">${t.priority}</span>
+        </div>
+        <div class="small text-muted mb-1">${escapeHtml(t.description)}</div>
+        <div class="small">
+          <span class="badge bg-light text-dark">${escapeHtml(t.type)}</span>
+          <span class="text-muted">· ${t.estimate_hours}h</span>
+          ${t.assignee_name ? `· <strong>${escapeHtml(t.assignee_name)}</strong>` : "· <em>unassigned</em>"}
+        </div>
+        <div class="small text-muted mt-1" style="font-style:italic">${escapeHtml(t.reasoning)}</div>
+      </div>
+    `).join("");
+
+    thread.insertAdjacentHTML("beforeend", `
+      <div class="tt-msg assistant" style="max-width:95%">
+        <div class="tt-bubble" style="display:block">${escapeHtml(plan.summary)}</div>
+        <div class="tt-plan-card" id="${planId}">
+          <div class="small text-muted mb-2">Proposed ${plan.mode === "solo" ? "solo" : "team"} breakdown — ${plan.tasks.length} task(s)</div>
+          ${tasksHtml}
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-tf-primary btn-sm" onclick="approvePlan('${planId}')">Approve & create tasks</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="rejectPlan('${planId}')">Not quite — let me adjust</button>
+          </div>
+        </div>
+      </div>
+    `);
+    pendingPlans[planId] = plan;
+    scrollToBottom();
+  }
+
+  const pendingPlans = {};
+
+  async function approvePlan(planId) {
+    const plan = pendingPlans[planId];
+    if (!plan) return;
+    const card = document.getElementById(planId);
+    card.innerHTML = `<div class="small text-muted">Creating tasks…</div>`;
+    try {
+      const result = await Api.request("/api/tasktopus/approve", {
+        method: "POST",
+        body: { project_id: currentProject.id, plan },
+      });
+      card.innerHTML = `<div class="small text-success">✓ Created ${result.count} task(s) on the board.</div>`;
+      history.push({ role: "user", content: "[approved the proposed plan]" });
+    } catch (err) {
+      card.innerHTML = `<div class="small text-danger">Failed to create tasks: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function rejectPlan(planId) {
+    const card = document.getElementById(planId);
+    card.innerHTML = `<div class="small text-muted">Okay — tell me what to change below.</div>`;
+    history.push({ role: "user", content: "[rejected the proposed plan, will clarify]" });
+    document.getElementById("chatInput").focus();
+  }
+
+  document.getElementById("chatForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("chatInput");
+    const text = input.value.trim();
+    if (!text) return;
+
+    addUserBubble(text);
+    history.push({ role: "user", content: text });
+    input.value = "";
+
+    const sendBtn = document.getElementById("sendBtn");
+    sendBtn.disabled = true;
+    addSystemNotice("Tasktopus is thinking…");
+
+    try {
+      const res = await Api.request("/api/tasktopus/chat", {
+        method: "POST",
+        body: { project_id: currentProject.id, messages: history },
+      });
+      document.querySelector("#thread > div:last-child").remove(); // remove "thinking…" notice
+
+      if (res.type === "plan") {
+        addPlanCard(res.plan);
+        history.push({ role: "assistant", content: `[proposed a plan: ${res.plan.summary}]` });
+      } else {
+        addAssistantBubble(res.content);
+        history.push({ role: "assistant", content: res.content });
+      }
+    } catch (err) {
+      document.querySelector("#thread > div:last-child").remove();
+      addSystemNotice("Something went wrong: " + err.message);
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

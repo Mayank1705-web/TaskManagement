@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow — AI Insights</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container py-4">
+  <h4 class="mb-4">AI Insights</h4>
+
+  <div class="row">
+    <div class="col-md-5">
+      <div class="tf-chart-card">
+        <h6>Estimate Predictor</h6>
+        <p class="small text-muted">Predicts realistic hours for a new task based on completed task history.</p>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Type</label>
+          <select class="form-control form-control-sm" id="estType">
+            <option value="frontend">Frontend</option>
+            <option value="backend">Backend</option>
+            <option value="database">Database</option>
+            <option value="devops">DevOps</option>
+            <option value="design">Design</option>
+            <option value="testing">Testing</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Priority</label>
+          <select class="form-control form-control-sm" id="estPriority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Assignee</label>
+          <select class="form-control form-control-sm" id="estAssignee"></select>
+        </div>
+        <button class="btn btn-tf-primary btn-sm w-100" id="estimateBtn">Predict Hours</button>
+        <div class="mt-3" id="estimateResult"></div>
+      </div>
+    </div>
+
+    <div class="col-md-7">
+      <div class="tf-chart-card">
+        <h6>Risk Watchlist</h6>
+        <p class="small text-muted">Open tasks ranked by risk of slipping, with the signal breakdown.</p>
+        <div id="riskList"><div class="text-muted small">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+  Api.requireAuth();
+  renderNavbar("ml");
+
+  let currentProject = null;
+
+  async function init() {
+    const projects = await Api.listProjects();
+    if (!projects.length) return;
+    currentProject = projects[0];
+
+    const users = await Api.listUsers();
+    document.getElementById("estAssignee").innerHTML =
+      `<option value="">Unassigned</option>` +
+      users.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join("");
+
+    loadRisk();
+  }
+
+  document.getElementById("estimateBtn").addEventListener("click", async () => {
+    const resultBox = document.getElementById("estimateResult");
+    resultBox.innerHTML = `<div class="text-muted small">Predicting…</div>`;
+    try {
+      const assigneeVal = document.getElementById("estAssignee").value;
+      const data = await Api.estimateHours({
+        type: document.getElementById("estType").value,
+        priority: document.getElementById("estPriority").value,
+        assignee_id: assigneeVal ? parseInt(assigneeVal) : null,
+      });
+      resultBox.innerHTML = `
+        <div class="tf-stat">${data.predicted_hours}h</div>
+        <div class="small text-muted">${escapeHtml(data.confidence_note)}</div>
+      `;
+    } catch (err) {
+      resultBox.innerHTML = `<div class="text-danger small">${escapeHtml(err.message)}</div>`;
+    }
+  });
+
+  async function loadRisk() {
+    const box = document.getElementById("riskList");
+    try {
+      const tasks = await Api.riskScores(currentProject.id);
+      if (!tasks.length) {
+        box.innerHTML = `<div class="text-muted small">No open tasks to assess.</div>`;
+        return;
+      }
+      box.innerHTML = tasks.map(t => `
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+          <div>
+            <div class="fw-semibold small">${escapeHtml(t.title)}</div>
+            <div class="text-muted" style="font-size:0.75rem">${escapeHtml(t.assignee_name || "Unassigned")} · due ${t.due_date ? timeAgo(t.due_date) : "—"}</div>
+          </div>
+          <span class="tf-badge tf-risk-${t.risk_label.toLowerCase()}">${t.risk_label} · ${t.risk_score}</span>
+        </div>
+      `).join("");
+    } catch (err) {
+      box.innerHTML = `<div class="text-muted small">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

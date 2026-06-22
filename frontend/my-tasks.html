@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow — My Tasks</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container py-4">
+  <h4 class="mb-3">My Tasks</h4>
+  <div id="myTasksList"></div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+  Api.requireAuth();
+  renderNavbar("my-tasks");
+
+  async function init() {
+    const tasks = await Api.myTasks();
+    const list = document.getElementById("myTasksList");
+    if (!tasks.length) {
+      list.innerHTML = `<div class="text-muted">No tasks assigned to you.</div>`;
+      return;
+    }
+    list.innerHTML = tasks.map(t => `
+      <div class="tf-chart-card d-flex justify-content-between align-items-center">
+        <div>
+          <div class="fw-semibold">${escapeHtml(t.title)}</div>
+          <div class="small text-muted">${escapeHtml(t.type)} · ${escapeHtml(t.status)} · due ${t.due_date ? timeAgo(t.due_date) : "—"}</div>
+        </div>
+        <span class="tf-badge tf-badge-${t.priority}">${t.priority}</span>
+      </div>
+    `).join("");
+  }
+
+  init();
+</script>
+</body>
+</html>

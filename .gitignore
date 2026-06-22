@@ -5,3 +5,4 @@ backend/static/charts/*.png
 *.pyc
 taskflow.db
 backend/check_tables.py
+.env
