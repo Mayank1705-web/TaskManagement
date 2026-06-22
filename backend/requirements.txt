@@ -9,3 +9,5 @@ seaborn
 matplotlib
 scikit-learn
 numpy
+openai
+python-dotenv

@@ -138,3 +138,41 @@ class RiskTaskOut(BaseModel):
     due_date: Optional[datetime]
     risk_score: float
     risk_label: str
+
+# Tasktopus
+class ChatMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    project_id: int
+    messages: list[ChatMessage]  # full history, including the latest user message
+
+
+class ProposedTask(BaseModel):
+    title: str
+    description: str
+    type: str
+    priority: str
+    estimate_hours: float
+    assignee_id: Optional[int] = None
+    assignee_name: Optional[str] = None
+    reasoning: str
+
+
+class DelegationPlan(BaseModel):
+    summary: str
+    mode: str  # "solo" | "team"
+    tasks: list[ProposedTask]
+
+
+class ChatResponse(BaseModel):
+    type: str  # "text" | "plan"
+    content: Optional[str] = None
+    plan: Optional[DelegationPlan] = None
+
+
+class ApprovePlanRequest(BaseModel):
+    project_id: int
+    plan: DelegationPlan
